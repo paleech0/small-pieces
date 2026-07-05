@@ -1,0 +1,12 @@
+# Claude Code hooks
+cc-notify_muted.json
+cc-notify_error.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
