@@ -127,13 +127,17 @@ mkdir -p ~/.claude/hooks && curl -o ~/.claude/hooks/cc-notify.py https://raw.git
 
 ## 跨平台支持
 
-| 平台 | 弹窗 | 前台检测 |
-|------|------|----------|
-| Windows | ✅ tkinter | ✅ 完整支持（含 Windows Terminal、ConEmu 等） |
-| macOS | ✅ tkinter | ❌ 未实现 |
-| Linux | ✅ tkinter | ❌ 未实现 |
+| 平台 | 弹窗 | 前台检测 | 检测方式 |
+|------|------|----------|----------|
+| Windows | ✅ tkinter | ✅ 完整支持 | Win32 API（窗口类名 + 进程名） |
+| macOS | ✅ tkinter | ✅ 支持 | AppleScript 查询前台应用名 |
+| Linux | ✅ tkinter | ✅ 支持 | xdotool 查询前台窗口类名 |
+
+> **已知局限**：VS Code / Cursor 内置终端将终端嵌在编辑器主窗口中，无法区分用户是在看终端还是写代码。这些场景下前台检测无效，始终弹窗。
 
 ## 工作原理
+
+> **注意**：Claude Code 处于自动模式（如 `--dangerously-skip-permissions` 或 `/loop`）时，CC 会跳过权限申请直接执行，不会触发 PermissionRequest 事件，因此不会弹窗。这是 CC 自身的行为，无需 hook 额外干预。
 
 ```
 Claude Code 事件触发
