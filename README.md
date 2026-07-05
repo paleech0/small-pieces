@@ -23,20 +23,31 @@
 - **无需 pip install**——仅依赖标准库（`tkinter`、`ctypes`、`json` 等）
 - Windows / macOS / Linux 均可运行（前台检测仅 Windows 完整支持）
 
-## 安装步骤
+## 安装
 
-### 1. 下载脚本
+### 方式一：一行命令（推荐）
 
-将 `cc-notify.py` 复制到以下任一目录：
+**Windows（PowerShell）：**
 
-| 级别 | 路径 | 生效范围 |
-|------|------|----------|
-| 全局 | `~/.claude/hooks/cc-notify.py` | 所有项目 |
-| 项目 | `.claude/hooks/cc-notify.py` | 仅当前项目 |
+```powershell
+md "$env:USERPROFILE\.claude\hooks" -Force; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/paleech0/small-pieces/master/cc-notify.py" -OutFile "$env:USERPROFILE\.claude\hooks\cc-notify.py"
+```
 
-### 2. 配置 hooks
+**macOS / Linux：**
 
-编辑 `~/.claude/settings.json`（全局）或 `.claude/settings.json`（项目级），添加：
+```bash
+mkdir -p ~/.claude/hooks && curl -o ~/.claude/hooks/cc-notify.py https://raw.githubusercontent.com/paleech0/small-pieces/master/cc-notify.py
+```
+
+然后用下面的配置完成安装。
+
+### 方式二：安装脚本（Windows）
+
+下载仓库中的 `install.ps1`，右键 → 使用 PowerShell 运行。脚本会自动完成下载和配置。
+
+### 配置 hooks
+
+在 `~/.claude/settings.json` 中添加以下配置。如果文件已有其他内容，将 `"hooks"` 块合并进去：
 
 ```json
 {
@@ -67,10 +78,12 @@
 }
 ```
 
-> **Windows 用户**：将路径中的 `~/.claude/` 改为 `C:/Users/你的用户名/.claude/`。
-> **项目级使用**：将路径改为 `.claude/hooks/cc-notify.py`。
+> **Windows 用户**：将 `~/.claude/` 改为 `C:/Users/你的用户名/.claude/`。
+> **项目级使用**：路径改为 `.claude/hooks/cc-notify.py`，配置写在 `.claude/settings.json`。
 
-### 3. 重启 Claude Code
+### 验证
+
+重启 Claude Code，在 CC 中输入 `/hooks` 查看是否加载成功。
 
 配置在 CC 启动时加载，重启后生效。可在 CC 中输入 `/hooks` 验证配置是否加载成功。
 
