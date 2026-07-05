@@ -21,7 +21,7 @@
 
 - **Python 3**（任一版本均可）
 - **无需 pip install**——仅依赖标准库（`tkinter`、`ctypes`、`json` 等）
-- Windows / macOS / Linux 均可运行（前台检测仅 Windows 完整支持）
+- Windows / macOS / Linux 均可运行（前台检测全平台支持，VS Code / Cursor 内置终端除外）
 
 ## 安装
 
