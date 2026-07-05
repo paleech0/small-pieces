@@ -569,9 +569,9 @@ def show_idle_notification(_data):
     root.resizable(False, False)
     root.configure(bg=COLORS['bg'])
 
-    _center_window(root, 340, 160)
+    _center_window(root, 400, 170)
 
-    main = tk.Frame(root, bg=COLORS['bg'], padx=24, pady=18)
+    main = tk.Frame(root, bg=COLORS['bg'], padx=20, pady=16)
     main.pack(fill='both', expand=True)
 
     tk.Label(
@@ -587,34 +587,38 @@ def show_idle_notification(_data):
         root.destroy()
 
     def _close_and_toggle_quiet():
-        is_now_quiet = _toggle_quiet()
+        _toggle_quiet()
         root.destroy()
 
-    # 按钮行
-    btn_row = tk.Frame(main, bg=COLORS['bg'])
-    btn_row.pack(pady=(14, 0))
-
-    btn_mute = tk.Button(
-        btn_row, text='🔕 以后不再提醒', command=_close_and_mute,
-        bg=COLORS['bg'], fg=COLORS['muted'],
-        font=FONT_SANS_BOLD,
-        activebackground=COLORS['bg'],
-        activeforeground=COLORS['danger'],
-        relief='flat', padx=8, pady=4, cursor='hand2', bd=0
-    )
-    btn_mute.pack(side='left', padx=(0, 12))
+    # 操作按钮行（静默 + 屏蔽）
+    toggle_row = tk.Frame(main, bg=COLORS['bg'])
+    toggle_row.pack(pady=(14, 0))
 
     quiet_label = '🔊 静默模式' if not _is_quiet() else '🔇 取消静默'
     quiet_fg = COLORS['muted'] if not _is_quiet() else COLORS['accent']
     btn_quiet = tk.Button(
-        btn_row, text=quiet_label, command=_close_and_toggle_quiet,
+        toggle_row, text=quiet_label, command=_close_and_toggle_quiet,
         bg=COLORS['bg'], fg=quiet_fg,
         font=FONT_SANS_BOLD,
         activebackground=COLORS['bg'],
         activeforeground=COLORS['accent'],
-        relief='flat', padx=8, pady=4, cursor='hand2', bd=0
+        relief='flat', padx=10, pady=4, cursor='hand2', bd=0
     )
-    btn_quiet.pack(side='left', padx=(0, 20))
+    btn_quiet.pack(side='left', padx=(0, 16))
+
+    btn_mute = tk.Button(
+        toggle_row, text='🔕 以后不再提醒', command=_close_and_mute,
+        bg=COLORS['bg'], fg=COLORS['muted'],
+        font=FONT_SANS_BOLD,
+        activebackground=COLORS['bg'],
+        activeforeground=COLORS['danger'],
+        relief='flat', padx=10, pady=4, cursor='hand2', bd=0
+    )
+    btn_mute.pack(side='left')
+
+    # 知道了按钮（独立一行，居中）
+    btn_row = tk.Frame(main, bg=COLORS['bg'])
+    btn_row.pack(pady=(10, 0))
 
     btn = tk.Button(
         btn_row, text='知道了', command=_close,
@@ -622,9 +626,9 @@ def show_idle_notification(_data):
         font=FONT_SANS_BOLD,
         activebackground=COLORS['accent_hover'],
         activeforeground='#ffffff',
-        relief='flat', padx=24, pady=5, cursor='hand2', bd=0
+        relief='flat', padx=30, pady=5, cursor='hand2', bd=0
     )
-    btn.pack(side='left')
+    btn.pack()
 
     root.bind('<Escape>', lambda e: _close())
     root.bind('<Return>', lambda e: _close())
