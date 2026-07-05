@@ -172,16 +172,39 @@ def _win32_get_tk_hwnd(root):
     except Exception:
         return None
 
+# 已知终端进程名（macOS / Linux 前台检测用）
+_MACOS_TERMINALS = {
+    'Terminal', 'iTerm2', 'Warp', 'kitty', 'Alacritty', 'WezTerm',
+    'Ghostty', 'Hyper', 'Tabby',
+}
+_LINUX_TERMINAL_CLASSES = {
+    'gnome-terminal', 'konsole', 'Alacritty', 'kitty', 'wezterm',
+    'xfce4-terminal', 'lxterminal', 'terminator', 'tilix', 'xterm',
+    'urxvt', 'st-256color', 'st', 'foot',
+}
+
+
 def _is_terminal_foreground():
     """
     检测 Claude Code 所在的终端是否在前台。
     在前台 → 用户正盯着终端 → 无需弹窗，让 CC 原生提示处理。
     在后台 → 用户在做别的事 → 弹窗通知。
-    """
-    if not IS_WIN:
-        # macOS / Linux：暂不做检测（实现复杂，后续可加）
-        return False
 
+    局限性：
+    - Windows：CMD / PowerShell / Windows Terminal 等独立终端可检测；
+      VS Code / Cursor 内置终端嵌在主编辑器窗口里，无法区分用户是在看终端还是写代码。
+    - macOS / Linux：依赖系统命令（osascript / xdotool），如命令不可用则跳过检测。
+    """
+    if IS_WIN:
+        return _foreground_windows()
+    elif IS_MAC:
+        return _foreground_macos()
+    else:
+        return _foreground_linux()
+
+
+def _foreground_windows():
+    """Windows：通过 Win32 API 检测前台窗口。"""
     try:
         import ctypes
 
@@ -204,8 +227,6 @@ def _is_terminal_foreground():
         buf = ctypes.create_unicode_buffer(256)
         ctypes.windll.user32.GetClassNameW(fg, buf, 256)
         cls = buf.value
-
-        # 已知终端窗口类名
         if cls in (
             'ConsoleWindowClass',             # 传统 conhost.exe
             'CASCADIA_HOSTING_WINDOW_CLASS',  # Windows Terminal
@@ -240,7 +261,36 @@ def _is_terminal_foreground():
 
         return False
     except Exception:
-        return False  # 无法判断 → 宁可弹窗也不错漏
+        return False
+
+
+def _foreground_macos():
+    """macOS：通过 AppleScript 查询前台应用名。"""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['osascript', '-e',
+             'tell application "System Events" to get name of first process whose frontmost is true'],
+            capture_output=True, text=True, timeout=3
+        )
+        app = result.stdout.strip()
+        return app in _MACOS_TERMINALS
+    except Exception:
+        return False
+
+
+def _foreground_linux():
+    """Linux：通过 xdotool 查询前台窗口类名。"""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['xdotool', 'getactivewindow', 'getwindowclassname'],
+            capture_output=True, text=True, timeout=3
+        )
+        cls = result.stdout.strip()
+        return cls in _LINUX_TERMINAL_CLASSES
+    except Exception:
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════
