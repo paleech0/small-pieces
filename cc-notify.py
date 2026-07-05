@@ -108,6 +108,30 @@ def _mute_idle():
     except Exception:
         pass
 
+
+# 静默模式（弹窗最小化到任务栏，不抢焦点）
+# 持久标记文件，手动创建/删除即可切换
+QUIET_FILE = os.path.join(SCRIPT_DIR, 'cc-notify_quiet')
+
+
+def _is_quiet():
+    """检查静默模式是否开启。"""
+    return os.path.exists(QUIET_FILE)
+
+
+def _toggle_quiet():
+    """切换静默模式。"""
+    try:
+        if os.path.exists(QUIET_FILE):
+            os.remove(QUIET_FILE)
+            return False
+        else:
+            with open(QUIET_FILE, 'w') as f:
+                f.write('quiet')
+            return True
+    except Exception:
+        return _is_quiet()
+
 # ═══════════════════════════════════════════════════════════════════════
 # Windows 原生辅助
 # ═══════════════════════════════════════════════════════════════════════
@@ -333,12 +357,12 @@ def show_permission_dialog(data):
     # 窗口尺寸
     win_w = 560
     n_sug = max(len(suggestions), 1)
-    win_h = 275 + min(n_sug, 4) * 36
+    win_h = 265 + min(n_sug, 4) * 36
     _center_window(root, win_w, win_h)
 
     # ── Header ────────────────────────────────────────────────────
     header = tk.Frame(root, bg=COLORS['bg'])
-    header.pack(fill='x', padx=24, pady=(20, 10))
+    header.pack(fill='x', padx=24, pady=(16, 8))
 
     tk.Label(
         header, text='🔐', font=('Segoe UI Emoji', 18), bg=COLORS['bg']
@@ -350,10 +374,10 @@ def show_permission_dialog(data):
 
     # ── 工具信息卡片 ──────────────────────────────────────────────
     card = tk.Frame(
-        root, bg=COLORS['card'], padx=16, pady=12,
+        root, bg=COLORS['card'], padx=14, pady=10,
         highlightbackground=COLORS['border'], highlightthickness=1
     )
-    card.pack(fill='x', padx=20, pady=(0, 10))
+    card.pack(fill='x', padx=20, pady=(0, 8))
 
     # 权限概述（中文自然语言描述）
     summary = _generate_summary(tool_name, tool_input)
@@ -381,7 +405,7 @@ def show_permission_dialog(data):
         detail_text = tk.Text(
             detail_frame, font=FONT_MONO, fg=COLORS['text'],
             bg=COLORS['card_input'], wrap='word', height=4,
-            bd=1, padx=8, pady=6, cursor='arrow', relief='solid'
+            bd=1, padx=8, pady=5, cursor='arrow', relief='solid'
         )
         detail_text.insert('1.0', detail)
         detail_text.configure(state='disabled')
@@ -394,12 +418,32 @@ def show_permission_dialog(data):
         scrollbar.pack(side='right', fill='y')
         detail_text.configure(yscrollcommand=scrollbar.set)
 
-    # ── 倒计时 ────────────────────────────────────────────────────
+    # ── 倒计时 + 静默开关 ──────────────────────────────────────────
+    bottom_row = tk.Frame(root, bg=COLORS['bg'])
+    bottom_row.pack(fill='x', padx=20, pady=(0, 6))
+
     countdown_var = tk.StringVar(value=f'⏱ {PERMISSION_TIMEOUT}s 后自动拒绝')
     tk.Label(
-        root, textvariable=countdown_var,
+        bottom_row, textvariable=countdown_var,
         font=FONT_COUNTDOWN, fg=COLORS['muted'], bg=COLORS['bg']
-    ).pack(pady=(0, 6))
+    ).pack(side='left')
+
+    def _toggle_quiet_from_dialog():
+        _toggle_quiet()
+        # 切换后最小化当前弹窗（让效果立刻可见）
+        if _is_quiet():
+            root.iconify()
+
+    quiet_label = '🔇 静默' if not _is_quiet() else '🔊 恢复'
+    quiet_fg = COLORS['muted'] if not _is_quiet() else COLORS['accent']
+    tk.Button(
+        bottom_row, text=quiet_label, command=_toggle_quiet_from_dialog,
+        bg=COLORS['bg'], fg=quiet_fg,
+        font=FONT_SANS_BOLD,
+        activebackground=COLORS['bg'],
+        activeforeground=COLORS['accent'],
+        relief='flat', padx=8, pady=2, cursor='hand2', bd=0
+    ).pack(side='right')
 
     # ── 按钮区 ────────────────────────────────────────────────────
     tk.Frame(root, bg=COLORS['border'], height=1).pack(fill='x', side='bottom')
@@ -436,10 +480,9 @@ def show_permission_dialog(data):
     # ── 按钮（从右到左排列） ──────────────────────────────────────
     btn_deny = tk.Button(
         bar, text='🚫  拒绝', command=_deny,
-        bg=COLORS['footer_bg'], fg=COLORS['danger'],
+        bg='#fee2e2', fg=COLORS['danger'],
         font=FONT_SANS_BOLD,
-        activebackground=COLORS['footer_bg'],
-        activeforeground=COLORS['danger_hover'],
+        activebackground='#fecaca', activeforeground=COLORS['danger_hover'],
         relief='flat', padx=18, pady=8, cursor='hand2', bd=0
     )
     btn_deny.pack(side='right', padx=(8, 0))
@@ -486,7 +529,10 @@ def show_permission_dialog(data):
     root.after(1000, lambda: _tick(PERMISSION_TIMEOUT - 1))
 
     # ── 展示 ──────────────────────────────────────────────────────
-    _bring_to_front(root, btn_allow)
+    if _is_quiet():
+        root.iconify()  # 静默模式：最小化到任务栏，不抢焦点
+    else:
+        _bring_to_front(root, btn_allow)
 
     # 每 12 秒重新闪烁任务栏（防止用户没注意到）
     def _reflash():
@@ -540,6 +586,10 @@ def show_idle_notification(_data):
         _mute_idle()
         root.destroy()
 
+    def _close_and_toggle_quiet():
+        is_now_quiet = _toggle_quiet()
+        root.destroy()
+
     # 按钮行
     btn_row = tk.Frame(main, bg=COLORS['bg'])
     btn_row.pack(pady=(14, 0))
@@ -547,12 +597,24 @@ def show_idle_notification(_data):
     btn_mute = tk.Button(
         btn_row, text='🔕 以后不再提醒', command=_close_and_mute,
         bg=COLORS['bg'], fg=COLORS['muted'],
-        font=FONT_COUNTDOWN,
+        font=FONT_SANS_BOLD,
         activebackground=COLORS['bg'],
         activeforeground=COLORS['danger'],
         relief='flat', padx=8, pady=4, cursor='hand2', bd=0
     )
-    btn_mute.pack(side='left', padx=(0, 20))
+    btn_mute.pack(side='left', padx=(0, 12))
+
+    quiet_label = '🔊 静默模式' if not _is_quiet() else '🔇 取消静默'
+    quiet_fg = COLORS['muted'] if not _is_quiet() else COLORS['accent']
+    btn_quiet = tk.Button(
+        btn_row, text=quiet_label, command=_close_and_toggle_quiet,
+        bg=COLORS['bg'], fg=quiet_fg,
+        font=FONT_SANS_BOLD,
+        activebackground=COLORS['bg'],
+        activeforeground=COLORS['accent'],
+        relief='flat', padx=8, pady=4, cursor='hand2', bd=0
+    )
+    btn_quiet.pack(side='left', padx=(0, 20))
 
     btn = tk.Button(
         btn_row, text='知道了', command=_close,
@@ -567,7 +629,10 @@ def show_idle_notification(_data):
     root.bind('<Escape>', lambda e: _close())
     root.bind('<Return>', lambda e: _close())
 
-    _bring_to_front(root, btn)
+    if _is_quiet():
+        root.iconify()
+    else:
+        _bring_to_front(root, btn)
 
     # 6 秒后自动关闭
     root.after(IDLE_AUTO_CLOSE * 1000, _close)
