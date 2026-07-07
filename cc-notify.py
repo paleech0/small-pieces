@@ -76,35 +76,21 @@ COLORS = {
 PERMISSION_TIMEOUT = 60
 IDLE_AUTO_CLOSE = 6
 
-# 空闲通知屏蔽（同一 CC 会话内有效，重启 CC 后重置）
-# 原理：存储 CC 进程 PID，PID 不同 = 新会话 → 屏蔽失效
+# 空闲通知屏蔽（同一 CC 会话内有效，重启 CC 后由 SessionStart hook 清除）
+# 原理：文件存在 = 已屏蔽。SessionStart hook 在 CC 启动时清除，确保会话隔离。
 MUTE_FILE = os.path.join(SCRIPT_DIR, 'cc-notify_muted.json')
 
 
 def _is_idle_muted():
     """检查当前 CC 会话是否已屏蔽空闲通知。"""
-    if not os.path.exists(MUTE_FILE):
-        return False
-    try:
-        with open(MUTE_FILE, 'r', encoding='utf-8') as f:
-            data = json.loads(f.read())
-        if data.get('pid') == os.getppid():
-            return True
-        # PID 不匹配 → 旧会话残留 → 清除
-        os.remove(MUTE_FILE)
-    except Exception:
-        try:
-            os.remove(MUTE_FILE)
-        except Exception:
-            pass
-    return False
+    return os.path.exists(MUTE_FILE)
 
 
 def _mute_idle():
     """屏蔽当前 CC 会话的空闲通知。"""
     try:
         with open(MUTE_FILE, 'w', encoding='utf-8') as f:
-            json.dump({'pid': os.getppid()}, f)
+            json.dump({'muted': True, 'at': 'SessionStart clears this on restart'}, f)
     except Exception:
         pass
 

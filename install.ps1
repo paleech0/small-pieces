@@ -38,13 +38,24 @@ Write-Host "[3/3] 配置 hooks..." -ForegroundColor Yellow
 
 $hookConfig = @{
     hooks = @{
+        SessionStart = @(
+            @{
+                matcher = ""
+                hooks = @(
+                    @{
+                        type = "command"
+                        command = "cmd /c del /f `"$env:USERPROFILE\.claude\hooks\cc-notify_muted.json`" 2>nul || exit 0"
+                    }
+                )
+            }
+        )
         PermissionRequest = @(
             @{
                 matcher = ""
                 hooks = @(
                     @{
                         type = "command"
-                        command = "python C:/Users/$env:USERNAME/.claude/hooks/cc-notify.py"
+                        command = "python $env:USERPROFILE\.claude\hooks\cc-notify.py"
                     }
                 )
             }
@@ -55,7 +66,7 @@ $hookConfig = @{
                 hooks = @(
                     @{
                         type = "command"
-                        command = "python C:/Users/$env:USERNAME/.claude/hooks/cc-notify.py"
+                        command = "python $env:USERPROFILE\.claude\hooks\cc-notify.py"
                     }
                 )
             }
@@ -73,7 +84,8 @@ if (Test-Path $settingsFile) {
         if (-not $existing.PSObject.Properties['hooks']) {
             $existing | Add-Member -NotePropertyName 'hooks' -NotePropertyValue $hookConfig.hooks -Force
         } else {
-            # 保留已有的其他事件，只更新 PermissionRequest 和 Notification
+            # 保留已有的其他事件，只更新 SessionStart / PermissionRequest / Notification
+            $existing.hooks | Add-Member -NotePropertyName 'SessionStart' -NotePropertyValue $hookConfig.hooks.SessionStart -Force
             $existing.hooks | Add-Member -NotePropertyName 'PermissionRequest' -NotePropertyValue $hookConfig.hooks.PermissionRequest -Force
             $existing.hooks | Add-Member -NotePropertyName 'Notification' -NotePropertyValue $hookConfig.hooks.Notification -Force
         }
