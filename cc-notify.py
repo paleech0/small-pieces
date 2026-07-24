@@ -307,6 +307,43 @@ def _bring_to_front(root, default_btn):
             root.after(50, lambda: _win32_force_foreground(hwnd))
             root.after(400, lambda: _win32_flash_taskbar(hwnd))
 
+def _render_questions(tool_name, tool_input):
+    """如果是 AskUserQuestion，返回格式化的 (summary, questions_html) 供弹窗渲染。
+    否则返回 None。"""
+    if tool_name != 'AskUserQuestion':
+        return None
+
+    questions = tool_input.get('questions', [])
+    if not questions:
+        return None
+
+    # 摘要：把每个问题的标题拼起来
+    headers = [q.get('header', q.get('question', '')[:20]) for q in questions]
+    summary = '向用户提问：' + '、'.join(headers) if headers else '向用户提问'
+
+    lines = []
+    for i, q in enumerate(questions):
+        q_text = q.get('question', '')
+        opts = q.get('options', [])
+        multi = q.get('multiSelect', False)
+
+        if len(questions) > 1:
+            lines.append(f'【问题 {i+1}】{q_text}' + ('  （可多选）' if multi else ''))
+        else:
+            lines.append(f'{q_text}' + ('  （可多选）' if multi else ''))
+
+        for j, opt in enumerate(opts):
+            label = opt.get('label', '')
+            desc = opt.get('description', '')
+            bullet = '☐' if multi else '○'
+            if desc:
+                lines.append(f'    {bullet}  {label} — {desc}')
+            else:
+                lines.append(f'    {bullet}  {label}')
+
+    return (summary, '\n'.join(lines))
+
+
 def _generate_summary(tool_name, tool_input):
     """根据工具名和参数生成中文权限概述。"""
     desc = tool_input.get('description', '')
@@ -415,44 +452,73 @@ def show_permission_dialog(data):
     )
     card.pack(fill='x', padx=20, pady=(0, 8))
 
-    # 权限概述（中文自然语言描述）
-    summary = _generate_summary(tool_name, tool_input)
-    if summary:
-        summary_label = tk.Label(
-            card, text=summary,
+    # ── AskUserQuestion：渲染问题和选项 ──────────────────
+    q_result = _render_questions(tool_name, tool_input)
+
+    if q_result:
+        q_summary, q_text = q_result
+
+        # 问题概述
+        tk.Label(
+            card, text=q_summary,
             font=FONT_SANS, fg='#374151', bg=COLORS['card'],
             wraplength=win_w - 52, justify='left'
+        ).pack(anchor='w')
+
+        tk.Frame(card, bg=COLORS['card'], height=10).pack(fill='x')
+
+        # 选项详情（用等宽字体排版，含 ○ / ☐ 符号）
+        q_label = tk.Label(
+            card, text=q_text,
+            font=FONT_MONO, fg=COLORS['text'], bg=COLORS['card_input'],
+            wraplength=win_w - 60, justify='left',
+            padx=12, pady=10, anchor='w'
         )
-        summary_label.pack(anchor='w')
+        q_label.pack(fill='x')
 
-        # 概述和工具名之间加一点间距
-        tk.Frame(card, bg=COLORS['card'], height=6).pack(fill='x')
+        # 根据选项数量调整窗口高度
+        option_lines = q_text.count('\n') + 1
+        win_h = max(win_h, 220 + min(option_lines, 12) * 18)
 
-    tk.Label(
-        card, text=f'工具：{tool_name}',
-        font=FONT_SANS_BOLD, fg=COLORS['accent'], bg=COLORS['card']
-    ).pack(anchor='w')
+    else:
+        # 权限概述（中文自然语言描述）
+        summary = _generate_summary(tool_name, tool_input)
+        if summary:
+            summary_label = tk.Label(
+                card, text=summary,
+                font=FONT_SANS, fg='#374151', bg=COLORS['card'],
+                wraplength=win_w - 52, justify='left'
+            )
+            summary_label.pack(anchor='w')
 
-    detail = _extract_detail(tool_input)
-    if detail:
-        detail_frame = tk.Frame(card, bg=COLORS['card'])
-        detail_frame.pack(fill='x', pady=(6, 0))
+            # 概述和工具名之间加一点间距
+            tk.Frame(card, bg=COLORS['card'], height=6).pack(fill='x')
 
-        detail_text = tk.Text(
-            detail_frame, font=FONT_MONO, fg=COLORS['text'],
-            bg=COLORS['card_input'], wrap='word', height=4,
-            bd=1, padx=8, pady=5, cursor='arrow', relief='solid'
-        )
-        detail_text.insert('1.0', detail)
-        detail_text.configure(state='disabled')
-        detail_text.pack(side='left', fill='both', expand=True)
+        tk.Label(
+            card, text=f'工具：{tool_name}',
+            font=FONT_SANS_BOLD, fg=COLORS['accent'], bg=COLORS['card']
+        ).pack(anchor='w')
 
-        scrollbar = tk.Scrollbar(
-            detail_frame, command=detail_text.yview,
-            bd=0, elementborderwidth=0, highlightthickness=0
-        )
-        scrollbar.pack(side='right', fill='y')
-        detail_text.configure(yscrollcommand=scrollbar.set)
+        detail = _extract_detail(tool_input)
+        if detail:
+            detail_frame = tk.Frame(card, bg=COLORS['card'])
+            detail_frame.pack(fill='x', pady=(6, 0))
+
+            detail_text = tk.Text(
+                detail_frame, font=FONT_MONO, fg=COLORS['text'],
+                bg=COLORS['card_input'], wrap='word', height=4,
+                bd=1, padx=8, pady=5, cursor='arrow', relief='solid'
+            )
+            detail_text.insert('1.0', detail)
+            detail_text.configure(state='disabled')
+            detail_text.pack(side='left', fill='both', expand=True)
+
+            scrollbar = tk.Scrollbar(
+                detail_frame, command=detail_text.yview,
+                bd=0, elementborderwidth=0, highlightthickness=0
+            )
+            scrollbar.pack(side='right', fill='y')
+            detail_text.configure(yscrollcommand=scrollbar.set)
 
     # ── 倒计时 + 静默开关 ──────────────────────────────────────────
     bottom_row = tk.Frame(root, bg=COLORS['bg'])
@@ -688,7 +754,7 @@ def main():
         raw = sys.stdin.buffer.read()
         if not raw:
             return
-        data = json.loads(raw.decode())
+        data = json.loads(raw.decode('utf-8-sig'))
     except Exception:
         with open(ERROR_LOG, 'a', encoding='utf-8') as f:
             f.write(f'[stdin-error] {traceback.format_exc()}\n')
